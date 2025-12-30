@@ -1,81 +1,103 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { Sidebar } from "./Sidebar";
 import { PDFUploader } from "./PDFUploader";
 import { UploadedFile } from "../types/pdf";
 
 export const Dashboard: React.FC = () => {
   const [files, setFiles] = useState<UploadedFile[]>([]);
 
-  const handleFilesChange = (newFiles: UploadedFile[]) => {
-    setFiles(newFiles);
+  // 1. Fetch files from SQLite on load
+  const fetchFiles = async () => {
+    try {
+      const response = await axios.get("http://localhost:8000/files");
+      setFiles(response.data);
+    } catch (err) {
+      console.error("Failed to fetch library", err);
+    }
   };
 
-  const getStats = () => {
-    const total = files.length;
-    const completed = files.filter((f) => f.status === "completed").length;
-    const processing = files.filter(
-      (f) => f.status === "processing" || f.status === "uploading"
-    ).length;
-    const errors = files.filter((f) => f.status === "error").length;
+  useEffect(() => {
+    fetchFiles();
+    // Poll every 5 seconds to catch status updates from the background task
+    const interval = setInterval(fetchFiles, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
-    return { total, completed, processing, errors };
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Delete this research and its vectors?")) {
+      await axios.delete(`http://localhost:8000/files/${id}`);
+      fetchFiles();
+    }
   };
 
-  const stats = getStats();
+  const stats = {
+    total: files.length,
+    completed: files.filter((f) => f.status === "completed").length,
+    processing: files.filter((f) => f.status === "processing").length,
+    errors: files.filter((f) => f.status === "error").length,
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                PDF Management Dashboard
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Upload and manage PDF documents for embedding and vectorization
-              </p>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* LEFT NAV MENU */}
+      <Sidebar files={files} onDelete={handleDelete} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-sm font-medium text-gray-500">Total Files</h3>
-            <p className="text-2xl font-bold text-gray-900 mt-2">
-              {stats.total}
-            </p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-sm font-medium text-gray-500">Completed</h3>
-            <p className="text-2xl font-bold text-green-600 mt-2">
-              {stats.completed}
-            </p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-sm font-medium text-gray-500">Processing</h3>
-            <p className="text-2xl font-bold text-blue-600 mt-2">
-              {stats.processing}
-            </p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-sm font-medium text-gray-500">Errors</h3>
-            <p className="text-2xl font-bold text-red-600 mt-2">
-              {stats.errors}
-            </p>
-          </div>
-        </div>
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 overflow-y-auto">
+        <header className="bg-white border-b px-8 py-6">
+          <h1 className="text-2xl font-bold text-gray-900 font-mono">
+            Apriel Golf Lab
+          </h1>
+          <p className="text-sm text-gray-500">
+            ServiceNow AI x Biomechanics Research
+          </p>
+        </header>
 
-        {/* Upload Section */}
-        <div className="bg-white rounded-lg shadow-sm border">
-          <div className="px-6 py-4 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">Upload PDFs</h2>
+        <main className="p-8 max-w-5xl mx-auto">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-4 gap-4 mb-8">
+            <StatCard label="Total Library" value={stats.total} color="gray" />
+            <StatCard
+              label="Vectorized"
+              value={stats.completed}
+              color="green"
+            />
+            <StatCard label="Ingesting" value={stats.processing} color="blue" />
+            <StatCard label="Issues" value={stats.errors} color="red" />
           </div>
-          <PDFUploader onFilesChange={handleFilesChange} files={files} />
-        </div>
-      </main>
+
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <h2 className="text-lg font-semibold mb-4">Ingest New Research</h2>
+            <PDFUploader onFilesChange={fetchFiles} files={files} />
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+const StatCard = ({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: string;
+}) => {
+  const colorMap: any = {
+    green: "text-green-600",
+    blue: "text-blue-600",
+    red: "text-red-600",
+    gray: "text-gray-900",
+  };
+  return (
+    <div className="bg-white p-4 rounded-lg border shadow-sm">
+      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+        {label}
+      </h3>
+      <p className={`text-2xl font-bold mt-1 ${colorMap[color]}`}>{value}</p>
     </div>
   );
 };

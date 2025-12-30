@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { UploadedFile } from "../types/pdf";
 import { uploadPDF } from "../services/pdfService";
+import axios from "axios";
 
 interface PDFUploaderProps {
   onFilesChange: (files: UploadedFile[]) => void;
@@ -102,6 +103,14 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({
     }
   };
 
+  const handleDelete = async (fileId: string) => {
+    if (window.confirm("Are you sure you want to delete this research?")) {
+      await axios.delete(`http://localhost:8000/files/${fileId}`);
+      // Refresh your file list here
+      // fetchFiles();
+    }
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto p-6">
       <div
@@ -146,7 +155,12 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({
                     <p className="font-medium text-gray-900">{file.name}</p>
                     <p className="text-sm text-gray-500">
                       {formatFileSize(file.size)} •{" "}
-                      {file.uploadDate.toLocaleString()}
+                      {/* Add this check to handle strings or missing dates */}
+                      {file.uploadDate
+                        ? typeof file.uploadDate === "string"
+                          ? new Date(file.uploadDate).toLocaleString()
+                          : file.uploadDate.toLocaleString()
+                        : "No Date"}
                     </p>
                     {file.errorMessage && (
                       <p className="text-sm text-red-600 mt-1">

@@ -17,6 +17,7 @@ export const uploadPDF = async (file: File): Promise<UploadResponse> => {
         },
       }
     );
+    console.log("Upload response:", response);
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
